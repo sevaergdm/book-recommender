@@ -1,4 +1,5 @@
 import argparse
+import re
 
 import requests
 
@@ -33,16 +34,16 @@ def google_search_title_author(title, author, max_books_to_fetch=200):
     search_title = title.lower().strip()
 
     filtered_books = [
-       book
-       for book in all_books
-       if (
-           any(
-               search_author in book_author.lower()
-               for book_author in book.get("volumeInfo", {}).get("authors", [])
-           )
-           and search_title in book.get("volumeInfo", {}).get("title", "").lower()
-       )
-   ]
+        book
+        for book in all_books
+        if (
+            any(
+                search_author in book_author.lower()
+                for book_author in book.get("volumeInfo", {}).get("authors", [])
+            )
+            and search_title in book.get("volumeInfo", {}).get("title", "").lower()
+        )
+    ]
 
     if not filtered_books:
         print(f"No books were found with the title" f" '{title}' and author '{author}'")
@@ -58,7 +59,7 @@ def enrich_book_data_openlibrary(books):
                 for item in book.get("volumeInfo", {}).get("industryIdentifiers", [])
                 if isinstance(item, dict) and item.get("type", "") == "ISBN_13"
             ),
-            None
+            None,
         )
 
         if isbn13:
@@ -81,31 +82,46 @@ def enrich_book_data_openlibrary(books):
     return books
 
 
+def clean_and_split_categories(category_strings):
+    cleaned_categories = []
+    delimiters = ["&", "/", "-", ":", "and"]
+
+    for raw_string in category_strings:
+        temp_string = raw_string
+        for delimiter in delimiters:
+            temp_string = temp_string.replace(delimiter, ",")
+
+        subcategories = temp_string.split(",")
+        for subcategory in subcategories:
+            cleaned = subcategory.lower().strip()
+            cleaned = re.sub(r"\(.*?\)", "", cleaned)
+            cleaned.replace("(", "").replace(")", "")
+
+            if "general" in cleaned:
+                cleaned = cleaned.replace("general", "").strip()
+
+            if cleaned:
+                cleaned_categories.append(cleaned)
+
+    return sorted(list(set(cleaned_categories)))
 
 
 def get_book_categories(books):
-    categories = set()
-    for book in books:
-        book_all_categories = []
+    all_raw_categories = []
 
+    for book in books:
         volume_info = book.get("volumeInfo", {})
+
         book_main_category = volume_info.get("mainCategory", "")
         book_categories_google = volume_info.get("categories", [])
+        book_categories_google.append(book_main_category)
+
         book_categories_ol = book.get("openLibrarySubjects", [])
 
-        if book_main_category != "":
-            book_all_categories.append(book_main_category)
-        if book_categories_google:
-            book_all_categories.extend(book_categories_google)
-        if book_categories_ol:
-            book_all_categories.extend(book_categories_ol)
+        all_raw_categories.extend(book_categories_google)
+        all_raw_categories.extend(book_categories_ol)
 
-        for category_string in book_all_categories:
-            subcategories = category_string.split(",")
-            for subcategory in subcategories:
-                categories.add(subcategory.lower().strip())
-
-    return list(categories)
+    return clean_and_split_categories(all_raw_categories)
 
 
 def print_book_info(books):
@@ -151,5 +167,5 @@ if __name__ == "__main__":
     books = google_search_title_author(args.title, args.author)
     books = enrich_book_data_openlibrary(books)
     print_book_info(books)
-    print("="*10 + "Book Categories" + "="*10)
+    print("=" * 10 + "Book Categories" + "=" * 10)
     print(get_book_categories(books))
