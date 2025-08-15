@@ -65,7 +65,7 @@ def enrich_book_data_openlibrary(books):
             try:
                 url = f"http://openlibrary.org/api/volumes/brief/isbn/{isbn13}.json"
                 response = requests.get(url)
-                response.raise_for_status
+                response.raise_for_status()
                 data = response.json()
 
                 if "records" in data and data["records"]:
@@ -86,17 +86,25 @@ def enrich_book_data_openlibrary(books):
 def get_book_categories(books):
     categories = set()
     for book in books:
+        book_all_categories = []
+
         volume_info = book.get("volumeInfo", {})
         book_main_category = volume_info.get("mainCategory", "")
-        book_categories = volume_info.get("categories", [])
-        ol_categories = book.get("openLibrarySubjects", [])
+        book_categories_google = volume_info.get("categories", [])
+        book_categories_ol = book.get("openLibrarySubjects", [])
+
         if book_main_category != "":
-            book_categories.append(book_main_category)
-        if ol_categories:
-            book_categories.extend(ol_categories)
-        if book_categories:
-            for category in book_categories:
-                categories.add(category.lower().strip())
+            book_all_categories.append(book_main_category)
+        if book_categories_google:
+            book_all_categories.extend(book_categories_google)
+        if book_categories_ol:
+            book_all_categories.extend(book_categories_ol)
+
+        for category_string in book_all_categories:
+            subcategories = category_string.split(",")
+            for subcategory in subcategories:
+                categories.add(subcategory.lower().strip())
+
     return list(categories)
 
 
