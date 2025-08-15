@@ -88,14 +88,14 @@ def clean_and_split_categories(category_strings):
 
     for raw_string in category_strings:
         temp_string = raw_string
+        cleaned = re.sub(r"\(.*?\)", "", temp_string)
+        cleaned = cleaned.replace("(", "").replace(")", "")
         for delimiter in delimiters:
-            temp_string = temp_string.replace(delimiter, ",")
+            cleaned = cleaned.replace(delimiter, ",")
 
-        subcategories = temp_string.split(",")
+        subcategories = cleaned.split(",")
         for subcategory in subcategories:
             cleaned = subcategory.lower().strip()
-            cleaned = re.sub(r"\(.*?\)", "", cleaned)
-            cleaned.replace("(", "").replace(")", "")
 
             if "general" in cleaned:
                 cleaned = cleaned.replace("general", "").strip()
