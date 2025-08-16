@@ -30,6 +30,9 @@ def clean_and_split_categories(category_strings):
 
 
 def get_book_categories(books, top_n=None):
+    if not books:
+        raise Exception("No books provided")
+
     all_raw_categories = []
 
     for book in books:

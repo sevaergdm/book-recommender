@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from src.data_processing import clean_and_split_categories, get_book_categories
+from src.data_processing import (clean_and_split_categories,
+                                 get_book_categories, print_book_info)
 
 
 def test_clean_and_split_categories():
@@ -65,3 +66,39 @@ def test_get_book_categories():
         categories = get_book_categories(books)
 
     assert categories == expected_output
+
+
+def test_get_book_categories_empty():
+    with pytest.raises(Exception) as e:
+        get_book_categories([])
+    assert str(e.value) == "No books provided"
+
+
+def test_print_book_info(capsys):
+    books = [
+        {
+            "isbn13": 12345,
+            "title": "A book",
+            "authors": ["John Doe"],
+            "publisher": "Publishing",
+            "published_date": "2020-02-02",
+        },
+        {
+            "isbn13": 67890,
+            "title": "A book 2",
+            "authors": ["Jane Doe"],
+            "publisher": "Publishing House",
+            "published_date": "1990-02-02",
+        },
+    ]
+
+    print_book_info(books)
+
+    captured = capsys.readouterr()
+    output = captured.out
+
+    assert "Title: A book" in output
+    assert "Author(s): John Doe" in output
+    assert "Publisher: Publishing" in output
+    assert "Published Date: 2020-02-02" in output
+    assert "ISBN-13: 12345" in output
