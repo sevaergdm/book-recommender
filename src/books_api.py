@@ -47,10 +47,17 @@ def get_books_by_category_google(category, max_books_to_fetch=200):
             ),
             None,
         )
+        main_category = volume_info.get("mainCategory", "")
+
+        categories = volume_info.get("categories", [])
+        categories.append(main_category)
+        cleaned_categories = clean_and_split_categories(categories)
+
         book_dict = {
             "isbn13": isbn13,
             "title": book_title,
             "authors": book_authors,
+            "categories": cleaned_categories
         }
         book_dicts.append(book_dict)
     return book_dicts
