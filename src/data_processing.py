@@ -3,6 +3,9 @@ from collections import Counter
 
 
 def clean_and_split_categories(category_strings):
+    if not category_strings:
+        raise Exception("No categories provided")
+
     cleaned_categories = []
     delimiters = ["&", "/", "-", ":", "and"]
 
