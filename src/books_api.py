@@ -4,6 +4,58 @@ import re
 import requests
 
 
+def get_books_by_category_google(category, max_books_to_fetch=200):
+    raw_books = []
+    url = r"https://www.googleapis.com/books/v1/volumes"
+    batch_size = 40
+    query = f'subject:"{category}"'
+
+    for i in range(0, max_books_to_fetch, batch_size):
+        params = {
+            "q": query,
+            "maxResults": batch_size,
+            "startIndex": i,
+        }
+
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred: {e}")
+            break
+
+        if not data.get("items"):
+            break 
+
+        raw_books.extend(data.get("items", []))
+
+    if not raw_books:
+        print(f"No books found with the category: {category}")
+        return
+    
+    book_dicts = []
+    for book in raw_books:
+        volume_info = book.get("volumeInfo", {})
+        book_title = volume_info.get("title", "")
+        book_authors = volume_info.get("authors", [])
+        isbn13 = next(
+            (
+                item.get("identifier", "")
+                for item in volume_info.get("industryIdentifiers", [])
+                if isinstance(item, dict) and item.get("type", "") == "ISBN_13"
+            ),
+            None,
+        )
+        book_dict = {
+            "isbn13": isbn13,
+            "title": book_title,
+            "authors": book_authors,
+        }
+        book_dicts.append(book_dict)
+    return book_dicts
+
+
 def google_search_title_author(title, author, max_books_to_fetch=200):
     all_books = []
     url = r"https://www.googleapis.com/books/v1/volumes"
@@ -122,6 +174,10 @@ def get_book_categories(books):
         all_raw_categories.extend(book_categories_ol)
 
     return clean_and_split_categories(all_raw_categories)
+
+
+def get_recommended_books_by_categories(categories):
+    recommendation_scores = {}
 
 
 def print_book_info(books):
