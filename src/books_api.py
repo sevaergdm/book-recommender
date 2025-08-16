@@ -1,7 +1,35 @@
 import argparse
 import re
+from collections import Counter
 
 import requests
+
+
+def get_recommended_books_by_categories(categories, max_recommendations=10):
+    if not categories:
+        raise Exception("No categories provided to search by")
+
+    master_books = {}
+
+    for category in categories.keys():
+        google_books = get_books_by_category_google(category, max_books_to_fetch=50)
+
+        for book in google_books:
+            isbn13 = book.get("isbn13")
+            if isbn13:
+                master_books_entry = master_books.setdefault(
+                    isbn13, {"details": book, "matched_categories": []}
+                )
+                master_books_entry["matched_categories"].append(category)
+
+    sorted_books = sorted(
+        master_books.items(),
+        key=lambda item: len(item[1]["matched_categories"]),
+        reverse=True,
+    )
+    final_recommendations = [item[1]["details"] for item in sorted_books]
+
+    return final_recommendations[:max_recommendations]
 
 
 def get_books_by_category_google(category, max_books_to_fetch=200):
@@ -26,19 +54,21 @@ def get_books_by_category_google(category, max_books_to_fetch=200):
             break
 
         if not data.get("items"):
-            break 
+            break
 
         raw_books.extend(data.get("items", []))
 
     if not raw_books:
         print(f"No books found with the category: {category}")
-        return
-    
+        return []
+
     book_dicts = []
     for book in raw_books:
         volume_info = book.get("volumeInfo", {})
         book_title = volume_info.get("title", "")
         book_authors = volume_info.get("authors", [])
+        publisher = volume_info.get("publisher", "N/A")
+        published_date = volume_info.get("publishedDate", "N/A")
         isbn13 = next(
             (
                 item.get("identifier", "")
@@ -47,17 +77,13 @@ def get_books_by_category_google(category, max_books_to_fetch=200):
             ),
             None,
         )
-        main_category = volume_info.get("mainCategory", "")
-
-        categories = volume_info.get("categories", [])
-        categories.append(main_category)
-        cleaned_categories = clean_and_split_categories(categories)
 
         book_dict = {
             "isbn13": isbn13,
             "title": book_title,
             "authors": book_authors,
-            "categories": cleaned_categories
+            "publisher": publisher,
+            "published_date": published_date
         }
         book_dicts.append(book_dict)
     return book_dicts
@@ -162,10 +188,10 @@ def clean_and_split_categories(category_strings):
             if cleaned:
                 cleaned_categories.append(cleaned)
 
-    return sorted(list(set(cleaned_categories)))
+    return cleaned_categories
 
 
-def get_book_categories(books):
+def get_book_categories(books, top_n=None):
     all_raw_categories = []
 
     for book in books:
@@ -180,42 +206,26 @@ def get_book_categories(books):
         all_raw_categories.extend(book_categories_google)
         all_raw_categories.extend(book_categories_ol)
 
-    return clean_and_split_categories(all_raw_categories)
+    all_cleaned_categories = clean_and_split_categories(all_raw_categories)
+    category_counts = Counter(all_cleaned_categories)
+    sorted_categories = sorted(
+        category_counts.items(), key=lambda item: item[1], reverse=True
+    )
 
+    if top_n is not None:
+        sorted_categories = sorted_categories[:top_n]
 
-def get_recommended_books_by_categories(categories):
-    recommendation_scores = {}
+    return dict(sorted_categories)
 
 
 def print_book_info(books):
     for book in books:
-        volume_info = book.get("volumeInfo", {})
-        book_authors = ", ".join(volume_info.get("authors", []))
-        book_title = volume_info.get("title", "N/A")
-        publisher = volume_info.get("publisher", "N/A")
-        published_date = volume_info.get("publishedDate", "N/A")
-        main_category = volume_info.get("mainCategory", "N/A")
-        categories = ", ".join(volume_info.get("categories", ["N/A"]))
-        ol_subjects = ", ".join(book.get("openLibrarySubjects", ["N/A"]))
-        industry_identifiers = volume_info.get("industryIdentifiers", [])
-        isbn13 = next(
-            (
-                item.get("identifier")
-                for item in industry_identifiers
-                if isinstance(item, dict) and item["type"] == "ISBN_13"
-            ),
-            "N/A",
-        )
-
         print("-" * 20)
-        print(f"Title: {book_title}")
-        print(f"Author(s): {book_authors}")
-        print(f"Publisher: {publisher}")
-        print(f"Published Date: {published_date}")
-        print(f"Main Cateogry: {main_category}")
-        print(f"Categories: {categories}")
-        print(f"Open Library Subjects: {ol_subjects}")
-        print(f"ISBN-13: {isbn13}")
+        print(f'Title: {book.get("title", "")}')
+        print(f'Author(s): {", ".join(book.get("authors", []))}')
+        print(f'Publisher: {book.get("publisher", "")}')
+        print(f'Published Date: {book.get("published_date", "")}')
+        print(f'ISBN-13: {book.get("isbn13", "")}')
 
 
 if __name__ == "__main__":
@@ -229,6 +239,12 @@ if __name__ == "__main__":
 
     books = google_search_title_author(args.title, args.author)
     books = enrich_book_data_openlibrary(books)
-    print_book_info(books)
-    print("=" * 10 + "Book Categories" + "=" * 10)
-    print(get_book_categories(books))
+    #print_book_info(books)
+    print("=" * 10 + "Book Categories Found" + "=" * 10)
+    categories = get_book_categories(books)
+    print(categories)
+    print("=" * 10 + f"Recommended Books for '{args.title}' by {args.author}" + "="* 10)
+    recommendations = get_recommended_books_by_categories(categories)
+    print_book_info(recommendations)
+#    american_fiction_books = get_books_by_category_google("paris")
+#    print(american_fiction_books[:10])
