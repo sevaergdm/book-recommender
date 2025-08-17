@@ -2,6 +2,8 @@
 
 My first attempt at building simple recommendation service which takes a book supplied by the user and attempts to find a set of recommendations for other books to read.
 
+There are many things that would need to be improved to make this more realistically functional, but I am using this as a simple learning opportunity. I may come back and revisit in the future to see if I can figure out the more fun bits.
+
 ## Usage
 
 `python3 src/main.py --title="{BOOK_TITLE}" --author="{BOOK AUTHOR}"`

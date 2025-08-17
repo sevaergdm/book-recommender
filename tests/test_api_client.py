@@ -126,5 +126,57 @@ def test_enrich_book_data_openlibrary_exception(mock_get):
 
 @patch("src.api_client.requests.get")
 def test_get_books_by_category_google(mock_get):
-    # TODO
-    assert 1 == 1
+    sample_api_response = {
+        "items": [
+            {
+                "volumeInfo": {
+                    "title": "For Whom the Bell Tolls",
+                    "authors": ["Ernest Hemingway"],
+                    "publishedDate": "1940-10-21",
+                    "industryIdentifiers": [
+                        {"type": "ISBN_10", "identifier": "238226294X"},
+                        {"type": "ISBN_13", "identifier": "9782382262948"},
+                    ],
+                    "categories": ["Fiction"],
+                }
+            }
+        ],
+    }
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = sample_api_response
+    mock_response.status_code = 200
+    mock_response.raise_for_status = lambda: None
+    mock_get.return_value = mock_response
+
+    result = get_books_by_category_google("Fiction", max_books_to_fetch=1)
+
+    assert result[0]["isbn13"] == "9782382262948"
+    assert result[0]["title"] == "For Whom the Bell Tolls"
+    mock_get.assert_called()
+
+
+@patch("src.api_client.requests.get")
+def test_get_books_by_category_google_exception(mock_get):
+    mock_get.side_effect = requests.exceptions.RequestException("Network error")
+
+    books = get_books_by_category_google("Fiction", max_books_to_fetch=1)
+
+    assert books == []
+    mock_get.assert_called()
+
+
+@patch("src.api_client.requests.get")
+def test_get_books_by_category_google_empty(mock_get, capsys):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"items": []}
+    mock_response.status_code = 200
+    mock_response.raise_for_status = lambda: None
+    mock_get.return_value = mock_response
+
+    result = get_books_by_category_google("Fiction", max_books_to_fetch=1)
+    captured = capsys.readouterr()
+
+    assert result == []
+    assert "No books found with the category: Fiction" in captured.out
+    mock_get.assert_called()
